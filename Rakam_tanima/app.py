@@ -2,6 +2,7 @@ import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior() 
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 from tensorflow.examples.tutorials.mnist import input_data
 mnist=input_data.read_data_sets("data/MNIST/",one_hot=True)# 10 tane çıkıştan sadece bir tanesi 1 ile gösterilerek tahmin sonucu gösterilecek(örn 8={0,0,0,0,0,0,0,0,1,0})
@@ -89,11 +90,43 @@ def training_step(iterations):
             print('Iterations:',i, 'Training accuracy:',train_acc, 'Training loss:', train_loss)
 
 
-
-def test_accuracy():
-    feed_dict_test={x: mnist.test.images, y_true: mnist.test.labels, pkeep: 1}
+feed_dict_test={x: mnist.test.images, y_true: mnist.test.labels, pkeep: 1}
+def test_accuracy():  
     acc=sess.run(accuracy,feed_dict=feed_dict_test)
     print("testing accuracy : ", acc)
+
+
+def plot_images(images, cls_true, cls_pred=None):
+    assert len(images) == len(cls_true) == 9
+    fig, axes = plt.subplots(3, 3)
+    fig.subplots_adjust(hspace=0.3, wspace=0.3)
+
+    for i, ax in enumerate(axes.flat):
+        ax.imshow(images[i].reshape(28, 28), cmap='binary')
+        if cls_pred is None:
+            xlabel = "True: {0}".format(cls_true[i])
+        else:
+            xlabel = "True: {0}, Pred: {1}".format(cls_true[i], cls_pred[i])
+
+        ax.set_xlabel(xlabel)
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+    plt.show()
+
+
+def plot_example_errors():
+    mnist.test.cls = np.argmax(mnist.test.labels, axis=1)
+    y_pred_cls = tf.argmax(y4, 1)
+    correct, cls_pred = sess.run([correct_prediction, y_pred_cls], feed_dict=feed_dict_test)
+    incorrect = (correct == False)
+
+    images = mnist.test.images[incorrect]
+    cls_pred = cls_pred[incorrect]
+    cls_true = mnist.test.cls[incorrect]
+
+    plot_images(images=images[0:9], cls_true=cls_true[0:9], cls_pred=cls_pred[0:9])
+
 
 
 #training_step(2000)
@@ -105,3 +138,5 @@ plt.title('Loss Grafiği')
 plt.xlabel('Iterations')
 plt.ylabel('Loss')
 plt.show()
+
+plot_example_errors() #modeliminizin tahmin etkmekte zorlandığı 9 resmi ekrana yazdırarak inceliyoruz
