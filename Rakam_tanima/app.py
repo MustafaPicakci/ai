@@ -1,6 +1,8 @@
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior() 
 
+import matplotlib.pyplot as plt
+
 from tensorflow.examples.tutorials.mnist import input_data
 mnist=input_data.read_data_sets("data/MNIST/",one_hot=True)# 10 tane çıkıştan sadece bir tanesi 1 ile gösterilerek tahmin sonucu gösterilecek(örn 8={0,0,0,0,0,0,0,0,1,0})
 
@@ -46,7 +48,7 @@ optimize=tf.train.AdamOptimizer(0.001).minimize(loss)     # yazılan sayı learn
 sess=tf.Session()
 sess.run(tf.global_variables_initializer())
 batch_size=128  # resimlerin tek seferde kaç tanesi işlenecek
-
+loss_graph= []
 
 #logist=tf.matmul(x,w) + b           # matmul metodu ile matrislerde çarpma işlemi gerçekleştiriyoruz.
 #y=tf.nn.softmax(logist)             # nörondaki değerleri 0-1 arasına çekiyor. Tüm bu değerlerin toplamı 1'e eşit oluyor. (olasılık gibi)
@@ -73,6 +75,8 @@ def training_step(iterations):
         #sess.run(optimize,feed_dict=feed_dict_train)
         [_,train_loss]=sess.run([optimize,loss],feed_dict=feed_dict_train)   #optimize ederken loss değerinin düşüp düşmediğini gözlemlemek için atama yaptık
         
+        loss_graph.append(train_loss)
+
         if i % 100 == 0:    #her yüz adımda yazdırıyoruz
             train_acc=sess.run(accuracy,feed_dict=feed_dict_train)
             print('Iterations:',i, 'Training accuracy:',train_acc, 'Training loss:', train_loss)
@@ -88,3 +92,9 @@ def test_accuracy():
 #training_step(2000)
 training_step(10000)
 test_accuracy()
+
+plt.plot(loss_graph,'k-')
+plt.title('Loss Grafiği')
+plt.xlabel('Iterations')
+plt.ylabel('Loss')
+plt.show()
