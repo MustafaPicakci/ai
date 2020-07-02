@@ -12,6 +12,10 @@ x=tf.placeholder(tf.float32,[None,784]) # None gelen resimlerin sayısı. Şu an
 #label
 y_true=tf.placeholder(tf.float32,[None,10]) # 10 dememizin sebebi sonuçta 10 tane çıkış olaması (0-9 arasındaki rakamlar)
 
+#dropout sabiti
+pkeep=tf.placeholder(tf.float32)    # dropout ile eğitim esnasında random olarak bazı nöronları inaktif edip modelin daha iyi genelleme yapmasını
+                                    # Sağlayacağız.
+
 #layers
 layer_1=128     # verilen sayılar layerlerdeki nöron sayıları.(istediğimiz gibi ayarlayabiliyoruz.)
 layer_2=64
@@ -31,9 +35,12 @@ weight_4 = tf.Variable(tf.truncated_normal([layer_3,layer_out],stddev=0.1)) #ras
 bias_4=tf.Variable(tf.constant(0.1,shape=[layer_out]))
 
 y1=tf.nn.relu(tf.matmul(x,weight_1)+bias_1)
-y2=tf.nn.relu(tf.matmul(y1,weight_2)+bias_2)
-y3=tf.nn.relu(tf.matmul(y2,weight_3)+bias_3)
-logits=tf.matmul(y3,weight_4)+ bias_4
+y1d=tf.nn.dropout(y1,pkeep)
+y2=tf.nn.relu(tf.matmul(y1d,weight_2)+bias_2)
+y2d=tf.nn.dropout(y2,pkeep)
+y3=tf.nn.relu(tf.matmul(y2d,weight_3)+bias_3)
+y3d=tf.nn.dropout(y3,pkeep)
+logits=tf.matmul(y3d,weight_4)+ bias_4
 y4=tf.nn.softmax(logits)
 
 xent=tf.nn.softmax_cross_entropy_with_logits(logits=logits,labels=y_true)
@@ -71,8 +78,8 @@ loss_graph= []
 def training_step(iterations):
     for i in range(iterations):
         x_batch,y_batch=mnist.train.next_batch(batch_size)      #x_batch'e resimleri, y_batch'e etiketleri atadık
-        feed_dict_train = {x : x_batch, y_true : y_batch}
-        #sess.run(optimize,feed_dict=feed_dict_train)
+        feed_dict_train = {x : x_batch, y_true : y_batch, pkeep:0.75} #pkeep:0.75 ile nöronların %75i aktif olacak anlamına geliyor.
+        #sess.run(optimize,feed_dict=feed_dict_train)                   dropout için kullanıyoruz.
         [_,train_loss]=sess.run([optimize,loss],feed_dict=feed_dict_train)   #optimize ederken loss değerinin düşüp düşmediğini gözlemlemek için atama yaptık
         
         loss_graph.append(train_loss)
@@ -84,7 +91,7 @@ def training_step(iterations):
 
 
 def test_accuracy():
-    feed_dict_test={x: mnist.test.images, y_true: mnist.test.labels}
+    feed_dict_test={x: mnist.test.images, y_true: mnist.test.labels, pkeep: 1}
     acc=sess.run(accuracy,feed_dict=feed_dict_test)
     print("testing accuracy : ", acc)
 
