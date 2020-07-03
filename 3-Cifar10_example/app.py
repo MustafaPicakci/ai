@@ -18,6 +18,7 @@ test_img, test_cls, test_labels=cifar10.load_test_data()
 print(len(train_img),len(test_img))
 x=tf.placeholder(tf.float32,[None,32,32,3]) # 32*32 lik ve derinliği 3 olan(RGB- Renkli) görseller kullanıyoruz
 y_true=tf.placeholder(tf.float32,[None,10]) # 10 adet sınıf sayımız var çıkış 10 sınıftan biri olacak
+pkeep=tf.placeholder(tf.float32)
 
 def conv_layer(input,size_in,size_out,use_pooling=True): # layerları otomatik oluşturmak için fonksiyon yazıyoruz
     w=tf.Variable(tf.truncated_normal([3,3,size_in,size_out],stddev=0.1)) #filtre boyutu 3x3 | size_in:önceki layerın derinliği | size_out: filtre sayısı
@@ -32,13 +33,16 @@ def conv_layer(input,size_in,size_out,use_pooling=True): # layerları otomatik o
         return y
 
 #fully connected layer oluşturmak için fonksiyon oluşturduk
-def fc_layer(input,size_in,size_out,relu=True):
+def fc_layer(input,size_in,size_out,relu=True, dropout=True):
     w=tf.Variable(tf.truncated_normal([size_in,size_out],stddev=0.1))
     b=tf.Variable(tf.constant(0.1, shape=[size_out]))
     logits=tf.matmul(input,w)+b
 
     if relu:
-        return tf.nn.relu(logits)
+        y= tf.nn.relu(logits)
+        if dropout:
+            y=tf.nn.dropout(y,pkeep)
+            return y
     else:
         return logits
 
@@ -46,9 +50,9 @@ conv1=conv_layer(x,3,32,use_pooling=True) #3 önceki layerin derinliği| 32 filt
 conv2=conv_layer(conv1,32,64,use_pooling=True) #output:8x8x64 olacak
 conv3=conv_layer(conv2,64,64,use_pooling=True) #output:4x4x64 olacak
 flattened=tf.reshape(conv3,[-1,4*4*64]) #convlayeri fullyconnected layera bağlayabilmek için düzleştirmemiz gerekiyor. bunu reshape ile yapıyoruz
-fc1=fc_layer(flattened,4*4*64,512,relu=True) #512 layerdeki nöron sayısına karşılık geliyor
-fc2=fc_layer(fc1,512,256,relu=True) #256 layerdeki nöron sayısına karşılık geliyor
-logits=fc_layer(fc2,256,10,relu=False) #10 layerdeki nöron sayısına karşılık geliyor | output layeri
+fc1=fc_layer(flattened,4*4*64,512,relu=True,dropout=True) #512 layerdeki nöron sayısına karşılık geliyor
+fc2=fc_layer(fc1,512,256,relu=True,dropout=True) #256 layerdeki nöron sayısına karşılık geliyor
+logits=fc_layer(fc2,256,10,relu=False,dropout=False) #10 layerdeki nöron sayısına karşılık geliyor | output layeri
 y=tf.nn.softmax(logits)
 
 y_pred_cls=tf.argmax(y,1) #tahmin edilen sınıfı bir değişkene atıyoruz
@@ -78,7 +82,7 @@ def training_step(iterations):
     start_time=time.time()
     for i in range(iterations):
         x_batch,y_batch=random_batch()
-        feed_dict_train={x:x_batch, y_true:y_batch}
+        feed_dict_train={x:x_batch, y_true:y_batch,pkeep:0.5} #pkeep ile aktif olacak nöron miktarını belirliyoruz
         [_,train_loss]=sess.run([optimizer,loss],feed_dict=feed_dict_train) #loss değerini değişkene atadık  
         loss_graph.append(train_loss) # loss değerini listeye ekledik. bu değerler ile loss grafiği oluşturacağız.
 
@@ -99,7 +103,7 @@ def test_accuracy():
     i=0
     while i <num_images: # bütün resimler bitene kadar bu döngü çalışacak
         j=min(i + batch_size_test,num_images) # j her seferinde 256 artacak ve num_images'i geçmeyecek| min fonksiyonu ile bu ikisinden küçük olan alınıyor
-        feed_dict={x: test_img[i:j, :], y_true: test_labels[i:j, :]} #i den j ye kadar image ve labelleri alıyoruz
+        feed_dict={x: test_img[i:j, :], y_true: test_labels[i:j, :],pkeep:1} #i den j ye kadar image ve labelleri alıyoruz
         cls_pred[i:j]=sess.run(y_pred_cls,feed_dict=feed_dict) #tahmin edilen sınıfları listeye atıyoruz
         i=j
 # i den j ye kadar olan resimleri alıp bunları modelimize tahmin ettiriyoruz. Tahmin ettiği sınıfları bir listeye atıyoruz
