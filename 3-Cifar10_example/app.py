@@ -20,6 +20,24 @@ x=tf.placeholder(tf.float32,[None,32,32,3]) # 32*32 lik ve derinliği 3 olan(RGB
 y_true=tf.placeholder(tf.float32,[None,10]) # 10 adet sınıf sayımız var çıkış 10 sınıftan biri olacak
 pkeep=tf.placeholder(tf.float32)
 
+def pre_process_image(image):
+    image=tf.image.random_flip_left_right(image)    #resimleri ters çeviriyoruz
+    image=tf.image.random_hue(image,max_delta=0.05) #resimlerin renkleri ile oynanıyor
+    image=tf.image.random_contrast(image,lower=0.3,upper=1.0) #resimlerin kontrast değerleri ile oynuyoruz
+    image=tf.image.random_brightness(image,max_delta=0.2)      #resimlerin parlaklık değerleri ile oynuyoruz
+    image=tf.image.random_saturation(image,lower=0.0,upper=2.0)  #resimlerin doygunluk değerleriyle oynuyoruz
+
+    image=tf.minimum(image,1.0)    # işlemlerin geçerli değerler arasında uygulanması için
+    image=tf.maximum(image,0.0)    # işlemlerin geçerli değerler arasında uygulanması için
+    return image
+
+def pre_process(images):
+    images=tf.map_fn(lambda image : pre_process_image(image),images) #tf.map_fn() çağırılan fonksiyonları tüm elemanlara uygular
+    return images
+
+with tf.device('/cpu:0'): # pre process gpuda çok yavaş çalıştığından bu işlemi cpuda çalıştırıyoruz
+    distorted_images=pre_process(images=x) # x resimlerini data augmentationdan geçiriyoruz
+
 def conv_layer(input,size_in,size_out,use_pooling=True): # layerları otomatik oluşturmak için fonksiyon yazıyoruz
     w=tf.Variable(tf.truncated_normal([3,3,size_in,size_out],stddev=0.1)) #filtre boyutu 3x3 | size_in:önceki layerın derinliği | size_out: filtre sayısı
     b=tf.Variable(tf.constant(0.1, shape=[size_out]))
@@ -46,7 +64,7 @@ def fc_layer(input,size_in,size_out,relu=True, dropout=True):
     else:
         return logits
 
-conv1=conv_layer(x,3,32,use_pooling=True) #3 önceki layerin derinliği| 32 filtre sayısı output:16x16x32 olacak
+conv1=conv_layer(distorted_images,3,32,use_pooling=True) #3 önceki layerin derinliği| 32 filtre sayısı output:16x16x32 olacak
 conv2=conv_layer(conv1,32,64,use_pooling=True) #output:8x8x64 olacak
 conv3=conv_layer(conv2,64,64,use_pooling=True) #output:4x4x64 olacak
 flattened=tf.reshape(conv3,[-1,4*4*64]) #convlayeri fullyconnected layera bağlayabilmek için düzleştirmemiz gerekiyor. bunu reshape ile yapıyoruz
