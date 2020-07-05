@@ -6,6 +6,7 @@ import numpy as np
 import time
 from datetime import timedelta
 
+import os
 import cifar10
 
 cifar10.download()
@@ -79,14 +80,31 @@ loss=tf.reduce_mean(xent)
 
 correct_prediction=tf.equal(y_pred_cls,tf.argmax(y_true,1))
 accuracy=tf.reduce_mean(tf.cast(correct_prediction,tf.float32))
-
-optimizer=tf.train.AdamOptimizer(5e-4).minimize(loss) # learning rate=0.0005
+global_step=tf.Variable(0,trainable=False) # eğitim döngüsünün kaç defa döndüğünü kaydedeceğiz| variable olarak tanımladığımız değişkenleri  
+                                           #tensorflow eğitilecek gözüyle bakıyor. bu değerin eğitilmeyeceğini belirtiyoruz
+optimizer=tf.train.AdamOptimizer(5e-4).minimize(loss,global_step) # learning rate=0.0005 #burada loss azaltılırken global_step 1 artacak
 
 sess=tf.Session()
-sess.run(tf.global_variables_initializer())
+
+saver=tf.train.Saver()                                                  #
+save_dir='checkpoints/'                                                 #
+
+if not  os.path.exists(save_dir):                                       #
+    os.makedirs(save_dir)                                               #    
+save_path=os.path.join(save_dir,'cifar10_cnn')                          # modeli kaydetme ile ilgili
+
+try:                                                                    #
+    print('checkpoint yükleniyor...')                                   #
+    last_chk_path=tf.train.latest_checkpoint(checkpoint_dir=save_dir)   #
+    saver.restore(sess,save_path=last_chk_path)                         #
+    print('checkpoint yüklendi.')                                       #
+except:                                                                 #
+    print('checkpoint bulunamadı.')                                     #
+    sess.run(tf.global_variables_initializer())                         #
+
+
 
 batch_size=128
-
 
 def random_batch():
     index=np.random.choice(len(train_img),size=batch_size,replace=False) #Rastgele index oluşturup bu indexteki resimleri ve labelleri alacağız.
@@ -101,12 +119,16 @@ def training_step(iterations):
     for i in range(iterations):
         x_batch,y_batch=random_batch()
         feed_dict_train={x:x_batch, y_true:y_batch,pkeep:0.5} #pkeep ile aktif olacak nöron miktarını belirliyoruz
-        [_,train_loss]=sess.run([optimizer,loss],feed_dict=feed_dict_train) #loss değerini değişkene atadık  
+        [_,train_loss,g_step]=sess.run([optimizer,loss,global_step],feed_dict=feed_dict_train) #loss değerini değişkene atadık  
         loss_graph.append(train_loss) # loss değerini listeye ekledik. bu değerler ile loss grafiği oluşturacağız.
 
         if i % 100 == 0:
             acc=sess.run(accuracy,feed_dict=feed_dict_train)
             print('Iteration: ',i,' Train accuracy: ',acc,' Training loss:',train_loss)
+        
+        if g_step % 1000 == 0:                                              #her 1000 adımda moodel kaydediliyor
+            saver.save(sess,save_path=save_path,global_step=global_step)
+            print('checkpoint kaydedildi.')
         
     end_time=time.time()
     time_dif=end_time-start_time
@@ -130,7 +152,7 @@ def test_accuracy():
         correct=(test_cls== cls_pred)   # tahminler ile doğru cevapları karşılaştırıyoruz
     print('Testing accuracy: ',correct.mean()) # ortalamasını aldık
 
-training_step(10000)
+training_step(2000)
 test_accuracy()
 
 plt.plot(loss_graph,'k-')
