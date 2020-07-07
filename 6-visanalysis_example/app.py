@@ -61,5 +61,5 @@ def plot_image(image): #resimleri yazdırmak için
     plt.imshow(img_norm)
     plt.show()
 
-image=optimize_image(conv_id=1,feature=5,iterations=30)
+image=optimize_image(conv_id=75,feature=10,iterations=2000)
 plot_image(image) 
